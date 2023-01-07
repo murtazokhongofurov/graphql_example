@@ -2,27 +2,30 @@
 #
 # https://gqlgen.com/getting-started/
 
-schema {
-    query: Query
-    mutation: Mutation
-}
-
-
 type Product {
-    id: ID!
-    name: String!
-    model: String!
-    price: Float!
-    amount: Int!
+  id: ID!
+  name: String!
+  model: String!
+  price: Float!
+  amount: Int!
 }
 
 input NewProduct {
-    name: String!
-    model: String!
-    price: Float!
-    amount: Int!
+  name: String!
+  model: String!
+  price: Float!
+  amount: Int!
+}
+
+input GetProductByName {
+  name: String!
 }
 
 type Mutation {
-    CreateProduct(input: NewProduct!): Product!
+  CreateProduct(input: NewProduct!): Product!
+  GetProduct(input: GetProductByName!): Product!
+}
+
+type Query {
+  NewProduct: [Product!]!
 }

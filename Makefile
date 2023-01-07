@@ -1,5 +1,5 @@
 run:
-	go run cmd/app/main.go
+	go run cmd/main.go
 
 proto-gen:
 	./script/gen-proto.sh

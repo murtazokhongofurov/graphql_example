@@ -3,44 +3,33 @@ package app
 import (
 	"fmt"
 	"log"
-	"net"
+	"net/http"
 
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/graphql_example/graph"
 	"github.com/graphql_example/pkg/config"
-	"github.com/graphql_example/pkg/logger"
-	"google.golang.org/grpc"
 	"github.com/graphql_example/pkg/db"
-	"google.golang.org/grpc/reflection"
+	"github.com/rs/cors"
 )
 
 func Run(cfg *config.Config) {
-	l := logger.New(cfg.LogLevel)
-
-	// postgres://user:password@host:5432/database
-	pgxURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		cfg.PostgresUser,
-		cfg.PostgresPassword,
-		cfg.PostgresHost,
-		cfg.PostgresPort,
-		cfg.PostgresDatabase)
-
-	pg, err := db.New(pgxURL, db.MaxPoolSize(cfg.PGXPoolMax))
+	_, err := db.ConnectToDb(cfg)
 	if err != nil {
-		l.Fatal(fmt.Errorf("app - Run - postgres.New: %w", err))
+		fmt.Println("error connect db", err)
+		return
 	}
-	defer pg.Close()
-	groupService := service.NewGroupService(l, pg)
 
-	lis, err := net.Listen("tcp", ":"+cfg.ProductServicePort)
-	if err != nil {
-		l.Fatal(fmt.Errorf("app - Run - grpcclient.New: %w", err))
-	}
-	c := grpc.NewServer()
-	reflection.Register(c)
-	group.RegisterGroupServiceServer(c, groupService)
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{fmt.Sprintf("http://%s:8080", cfg)},
+		AllowCredentials: true,
+	})
 
-	l.Info("Server is running on" + "port" + ": " + cfg.ProductServicePort)
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{Service: graph.Connect(cfg)}}))
 
-	if err := c.Serve(lis); err != nil {
-		log.Fatal("Error while listening: ", err)
-	}
+	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
+	http.Handle("/query", c.Handler(srv))
+
+	log.Printf("connect to http://%s:%s/ for GraphQL playground", cfg.ProductServiceHost, cfg.ProductServicePort)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", cfg.ProductServicePort), nil))
 }
